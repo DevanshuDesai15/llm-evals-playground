@@ -1,22 +1,46 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { runResults, testCases, variants } from "@/db/schema";
+import { runResults, scores, testCases, variants } from "@/db/schema";
 import { runAll } from "@/lib/runner";
+import { scoreRun } from "@/lib/scoring";
 
-// T3: run everything and print a summary. T5 turns this into the scored table.
+// npm run eval          -> new run of every case x variant, then score it
+// npm run eval -- 3     -> just (re)score and print existing run 3, no API calls
+// T5 adds the LLM judge to this table.
 async function main() {
-  if (!process.env.OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY missing in .env.local");
-  const [cases, vs] = await Promise.all([db.select().from(testCases), db.select().from(variants)]);
-  console.log(`running ${cases.length} cases x ${vs.length} variants...`);
-  const runId = await runAll({ cases, variants: vs });
+  let runId = Number(process.argv[2]);
+  if (!runId) {
+    if (!process.env.OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY missing in .env.local");
+    const [cases, vs] = await Promise.all([db.select().from(testCases), db.select().from(variants)]);
+    console.log(`running ${cases.length} cases x ${vs.length} variants...`);
+    runId = await runAll({ cases, variants: vs });
+  }
+  console.log(`scored ${await scoreRun(runId)} new results`);
 
-  const rows = await db.select().from(runResults).where(eq(runResults.runId, runId));
-  const lat = rows.map((r) => r.latencyMs).filter((n): n is number => n != null).sort((a, b) => a - b);
-  const pct = (p: number) => lat[Math.min(lat.length - 1, Math.floor(p * lat.length))];
-  const cost = rows.reduce((s, r) => s + Number(r.costUsd ?? 0), 0);
-  console.log(
-    `run ${runId}: ${rows.length} results, ${rows.filter((r) => r.error).length} errors, ` +
-      `p50 ${pct(0.5)}ms, p95 ${pct(0.95)}ms, cost $${cost.toFixed(5)}`,
+  const rows = await db
+    .select({ r: runResults, name: variants.name, passed: scores.passed })
+    .from(runResults)
+    .innerJoin(variants, eq(runResults.variantId, variants.id))
+    .leftJoin(scores, eq(scores.resultId, runResults.id))
+    .where(eq(runResults.runId, runId));
+
+  const byVariant = Map.groupBy(rows, (x) => x.name);
+  const pct = (a: number[], p: number) => a[Math.min(a.length - 1, Math.floor(p * a.length))];
+  console.log(`\nrun ${runId}`);
+  console.table(
+    [...byVariant].map(([name, rs]) => {
+      const lat = rs.map((x) => x.r.latencyMs).filter((n): n is number => n != null).sort((a, b) => a - b);
+      const checked = rs.filter((x) => x.passed != null);
+      const ok = checked.filter((x) => x.passed).length;
+      return {
+        variant: name,
+        "pass (deterministic)": `${ok}/${checked.length} ${((100 * ok) / checked.length).toFixed(0)}%`,
+        errors: rs.filter((x) => x.r.error).length,
+        "p50 ms": pct(lat, 0.5),
+        "p95 ms": pct(lat, 0.95),
+        "cost $": rs.reduce((s, x) => s + Number(x.r.costUsd ?? 0), 0).toFixed(5),
+      };
+    }),
   );
 }
 
