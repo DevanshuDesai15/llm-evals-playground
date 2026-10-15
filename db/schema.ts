@@ -73,6 +73,7 @@ export const scores = pgTable(
     passed: boolean().notNull(),
     score: real().notNull(), // 0..1
     reasoning: text(), // judge explanation
+    costUsd: numeric("cost_usd", { precision: 12, scale: 6 }), // judge calls only
   },
   (t) => [index("scores_result_idx").on(t.resultId)],
 );

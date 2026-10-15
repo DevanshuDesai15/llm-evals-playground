@@ -13,7 +13,7 @@ export type CallResult = {
   costUsd: number | null;
 };
 
-const openrouter = createOpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
+export const openrouter = createOpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
 
 export async function callModel(v: Variant, input: string): Promise<CallResult> {
   const start = performance.now();
