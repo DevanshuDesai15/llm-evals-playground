@@ -1,4 +1,4 @@
-import { count, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { runResults, runs, scores, testCases, variants } from "@/db/schema";
 
@@ -7,7 +7,7 @@ export async function GET(_req: Request, { params }: RouteContext<"/api/runs/[id
   const [run] = Number.isInteger(id) ? await db.select().from(runs).where(eq(runs.id, id)) : [];
   if (!run) return Response.json({ error: "not found" }, { status: 404 });
 
-  const [rows, sc, [{ n: nCases }], [{ n: nVariants }]] = await Promise.all([
+  const [rows, sc] = await Promise.all([
     db
       .select({ r: runResults, variant: variants.name, input: testCases.input })
       .from(runResults)
@@ -20,13 +20,9 @@ export async function GET(_req: Request, { params }: RouteContext<"/api/runs/[id
       .from(scores)
       .innerJoin(runResults, eq(scores.resultId, runResults.id))
       .where(eq(runResults.runId, id)),
-    db.select({ n: count() }).from(testCases),
-    db.select({ n: count() }).from(variants),
   ]);
   return Response.json({
     run,
-    // ponytail: total uses current case/variant counts, not a per-run snapshot
-    total: nCases * nVariants,
     results: rows.map(({ r, variant, input }) => ({
       id: r.id,
       variant,

@@ -12,6 +12,14 @@ export default async function Home() {
     <main className="mx-auto w-full max-w-3xl space-y-6 p-8">
       <h1 className="text-2xl font-semibold">LLM Evals Playground</h1>
       <StartRun />
+      <nav className="space-x-4">
+        <Link className="underline" href="/cases">
+          Test cases
+        </Link>
+        <Link className="underline" href="/variants">
+          Variants
+        </Link>
+      </nav>
       <ul className="space-y-1">
         {recent.map((r) => (
           <li key={r.id}>

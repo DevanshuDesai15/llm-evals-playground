@@ -4,7 +4,6 @@ import { Fragment, use, useEffect, useState } from "react";
 
 type Data = {
   run: { id: number; status: "pending" | "running" | "done" | "failed" };
-  total: number;
   results: {
     id: number;
     variant: string;
@@ -46,7 +45,7 @@ export default function RunPage({ params }: PageProps<"/runs/[id]">) {
 
   if (err && !data) return <p className="p-8 text-red-600">{err}</p>;
   if (!data) return <p className="p-8">Loading…</p>;
-  const { run, total, results } = data;
+  const { run, results } = data;
 
   return (
     <main className="mx-auto w-full max-w-5xl p-8">
@@ -54,7 +53,7 @@ export default function RunPage({ params }: PageProps<"/runs/[id]">) {
         Run {run.id} <span className="ml-2 rounded bg-zinc-200 px-2 py-0.5 text-sm dark:bg-zinc-800">{run.status}</span>
       </h1>
       <p className="mb-4 text-sm text-zinc-500">
-        {results.length}/{total} results
+        {results.length} results
       </p>
       <table className="w-full text-left text-sm">
         <thead>
